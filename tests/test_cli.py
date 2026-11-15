@@ -202,6 +202,18 @@ def test_set_missing_directory(cli, tmp_path):
     )
 
 
+@pytest.mark.parametrize("key", ["", "MY KEY", "A=B", "1KEY"])
+def test_set_invalid_key(cli, dotenv_path, key):
+    dotenv_path.write_text("a=b\n")
+
+    result = cli.invoke(dotenv_cli, ["--file", dotenv_path, "set", "--", key, "v"])
+
+    assert result.exit_code == 2, result.output
+    assert result.output.startswith("Error writing env file: ")
+    assert f"Invalid environment variable name: {key!r}" in result.output
+    assert dotenv_path.read_text() == "a=b\n"
+
+
 @pytest.mark.skipif(
     sys.platform == "win32" or os.geteuid() == 0,
     reason="Directory permissions are not enforced on Windows or for root.",
@@ -231,6 +243,16 @@ def test_get_default_path(tmp_path):
     result = run_dotenv(["get", "A"], cwd=tmp_path)
 
     check_process(result, exit_code=0, stdout="x\n")
+
+
+def test_set_invalid_key_process_exit_code(tmp_path):
+    (tmp_path / ".env").write_text("A=x\n")
+
+    result = run_dotenv(["set", "MY KEY", "v"], cwd=tmp_path)
+
+    check_process(result, exit_code=2)
+    assert "Invalid environment variable name: 'MY KEY'" in result.stderr
+    assert (tmp_path / ".env").read_text() == "A=x\n"
 
 
 def test_run(tmp_path):

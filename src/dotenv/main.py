@@ -2,6 +2,7 @@ import io
 import logging
 import os
 import pathlib
+import re
 import stat
 import sys
 import tempfile
@@ -221,6 +222,30 @@ def rewrite(
         raise error from None
 
 
+# Keys are written verbatim as `KEY=value`, so anything the reader would not
+# read back as the same key must be rejected before the file is touched.
+_valid_key_regex = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+
+def _validate_key(key: str) -> None:
+    """
+    Reject key names that the parser would not read back as the same key.
+
+    The reader accepts any run of characters without `=`, `#` or whitespace as
+    an unquoted key, so writing such a key verbatim produces a line that either
+    vanishes when parsed (`A=B=v` becomes `A="B=v"`, `MY KEY=v` fails to parse)
+    or is read back under a different name. Environment variable names are
+    restricted to this identifier form, which is a subset of what the reader
+    parses back unchanged.
+    """
+    if not _valid_key_regex.fullmatch(key):
+        raise ValueError(
+            f"Invalid environment variable name: {key!r}. "
+            "Names must start with a letter or an underscore and contain only "
+            "letters, digits, and underscores."
+        )
+
+
 def set_key(
     dotenv_path: StrPath,
     key_to_set: str,
@@ -235,6 +260,11 @@ def set_key(
 
     The target .env file is created if it doesn't exist.
 
+    Raises `ValueError` if `key_to_set` is not a valid environment variable
+    name (it must match ``[A-Za-z_][A-Za-z0-9_]*``). The file is left untouched
+    in that case, because a line with such a key would be silently lost or
+    misplaced when the file is parsed again.
+
     This function doesn't follow symlinks by default, to avoid accidentally
     modifying a file at a potentially untrusted path. If you don't need this
     protection and need symlinks to be followed, use `follow_symlinks`.
@@ -245,6 +275,7 @@ def set_key(
         dotenv_path = pathlib.Path(dotenv_path).expanduser()
     if quote_mode not in ("always", "auto", "never"):
         raise ValueError(f"Unknown quote_mode: {quote_mode}")
+    _validate_key(key_to_set)
 
     quote = quote_mode == "always" or (
         quote_mode == "auto" and not value_to_set.isalnum()

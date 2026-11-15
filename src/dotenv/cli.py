@@ -129,6 +129,12 @@ def set_value(ctx: click.Context, key: Any, value: Any) -> None:
     export = ctx.obj["EXPORT"]
     try:
         success, key, value = set_key(file, key, value, quote, export)
+    except ValueError as exc:
+        # An invalid key name is reported like any other failed write, rather
+        # than as a traceback: nothing is written and the exit code matches
+        # the library raising `ValueError`.
+        print(f"Error writing env file: {exc}", file=sys.stderr)
+        sys.exit(2)
     except OSError as exc:
         print(f"Error writing env file: {exc}", file=sys.stderr)
         sys.exit(2)

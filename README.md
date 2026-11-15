@@ -167,6 +167,14 @@ $ dotenv run -- python foo.py
 
 Run `dotenv --help` for more information about the options and subcommands.
 
+`dotenv set` and `dotenv.set_key` accept the same key names: a key must start
+with a letter or an underscore and contain only letters, digits, and
+underscores (for example `DB_HOST`, `_private`, `port2`). Any other key is
+rejected instead of being written, because the parser would otherwise read the
+line back under a different name or drop it entirely. The CLI reports the error
+and exits with code 2, and `set_key` raises `ValueError`; the `.env` file is
+left unchanged in both cases.
+
 ## File format
 
 The format is not formally specified and still improves over time. That being

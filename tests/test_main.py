@@ -25,6 +25,17 @@ def test_set_key_no_file(tmp_path):
     assert nx_path.exists()
 
 
+@pytest.mark.parametrize("key", ["", "MY KEY", "A=B", "1KEY"])
+def test_set_key_invalid_key(dotenv_path, key):
+    dotenv_path.write_text("a=b\n")
+
+    with pytest.raises(ValueError, match="Invalid environment variable name"):
+        dotenv.set_key(dotenv_path, key, "v")
+
+    assert dotenv_path.read_text() == "a=b\n"
+    assert list(dotenv_path.parent.glob(".tmp_*")) == []
+
+
 @pytest.mark.parametrize(
     "before,key,value,expected,after",
     [
